@@ -18,6 +18,7 @@
 package org.apache.spark.deploy.master
 
 private[deploy] object RecoveryState extends Enumeration {
+//  保存集群状态的单例
   type MasterState = Value
 
   val STANDBY, ALIVE, RECOVERING, COMPLETING_RECOVERY = Value

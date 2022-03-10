@@ -39,8 +39,9 @@ fi
 
 ORIGINAL_ARGS="$@"
 
+# 初始化conf目录环境变量以及pythonpath
 . "${SPARK_HOME}/sbin/spark-config.sh"
-
+# 初始化spark-env.sh中的环境变量配置，以及检测scala版本
 . "${SPARK_HOME}/bin/load-spark-env.sh"
 
 if [ "$SPARK_MASTER_PORT" = "" ]; then
@@ -54,7 +55,7 @@ fi
 if [ "$SPARK_MASTER_WEBUI_PORT" = "" ]; then
   SPARK_MASTER_WEBUI_PORT=8080
 fi
-
+# 在后台启动， spark-daemon.sh就是利用nohup + nice + & 后台启动
 "${SPARK_HOME}/sbin"/spark-daemon.sh start $CLASS 1 \
   --host $SPARK_MASTER_HOST --port $SPARK_MASTER_PORT --webui-port $SPARK_MASTER_WEBUI_PORT \
   $ORIGINAL_ARGS

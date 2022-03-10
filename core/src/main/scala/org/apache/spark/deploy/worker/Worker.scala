@@ -147,6 +147,7 @@ private[deploy] class Worker(
   // A thread pool for registering with masters. Because registering with a master is a blocking
   // action, this thread pool must be able to create "masterRpcAddresses.size" threads at the same
   // time so that we can register with all masters.
+  // 创建一个跟master数量一样大小的线程池，一次注册所有master.
   private val registerMasterThreadPool = ThreadUtils.newDaemonCachedThreadPool(
     "worker-register-master-threadpool",
     masterRpcAddresses.length // Make sure we can register with all masters at the same time
@@ -177,6 +178,7 @@ private[deploy] class Worker(
   }
 
   override def onStart() {
+//    worker的一些初始化通信在这里
     assert(!registered)
     logInfo("Starting Spark worker %s:%d with %d cores, %s RAM".format(
       host, port, cores, Utils.megabytesToString(memory)))
@@ -189,12 +191,14 @@ private[deploy] class Worker(
 
     val scheme = if (webUi.sslOptions.enabled) "https" else "http"
     workerWebUiUrl = s"$scheme://$publicAddress:${webUi.boundPort}"
+//    注册master
     registerWithMaster()
-
+// TODO: metricsSystem 以后再看
     metricsSystem.registerSource(workerSource)
     metricsSystem.start()
     // Attach the worker metrics servlet handler to the web ui after the metrics system is started.
     metricsSystem.getServletHandlers.foreach(webUi.attachHandler)
+//    worker启动的工作到此就解释了，接下来看application提交的过程
   }
 
   private def changeMaster(masterRef: RpcEndpointRef, uiUrl: String) {
@@ -208,6 +212,7 @@ private[deploy] class Worker(
   }
 
   private def tryRegisterAllMasters(): Array[JFuture[_]] = {
+//    用线程池向master提交注册请求
     masterRpcAddresses.map { masterAddress =>
       registerMasterThreadPool.submit(new Runnable {
         override def run(): Unit = {
@@ -319,9 +324,11 @@ private[deploy] class Worker(
   private def registerWithMaster() {
     // onDisconnected may be triggered multiple times, so don't attempt registration
     // if there are outstanding registration attempts scheduled.
+    // 设置一个定时任务来注册master， 如果已经存在定时任务了，提示已经有注册任务了
     registrationRetryTimer match {
       case None =>
         registered = false
+//        异步的去注册所有master
         registerMasterFutures = tryRegisterAllMasters()
         connectionAttemptCount = 0
         registrationRetryTimer = Some(forwordMessageScheduler.scheduleAtFixedRate(
@@ -340,6 +347,7 @@ private[deploy] class Worker(
   }
 
   private def registerWithMaster(masterEndpoint: RpcEndpointRef): Unit = {
+    // 发送的就是这个RegisterWorker请求给master，在去Master看看是怎么样处理这个请求的
     masterEndpoint.ask[RegisterWorkerResponse](RegisterWorker(
       workerId, host, port, self, cores, memory, workerWebUiUrl))
       .onComplete {
@@ -360,6 +368,7 @@ private[deploy] class Worker(
         logInfo("Successfully registered with master " + masterRef.address.toSparkURL)
         registered = true
         changeMaster(masterRef, masterWebUiUrl)
+//        注册成功后定期向master发送心跳
         forwordMessageScheduler.scheduleAtFixedRate(new Runnable {
           override def run(): Unit = Utils.tryLogNonFatalError {
             self.send(SendHeartbeat)
@@ -378,6 +387,7 @@ private[deploy] class Worker(
         val execs = executors.values.map { e =>
           new ExecutorDescription(e.appId, e.execId, e.cores, e.state)
         }
+//        还要向master发送一个WorkerLatestState，更新worker的状态
         masterRef.send(WorkerLatestState(workerId, execs.toList, drivers.keys.toSeq))
 
       case RegisterWorkerFailed(message) =>
@@ -390,7 +400,7 @@ private[deploy] class Worker(
         // Ignore. Master not yet ready.
     }
   }
-
+  // receive只接收不返回，感觉相似master给worker的一些指令
   override def receive: PartialFunction[Any, Unit] = synchronized {
     case SendHeartbeat =>
       if (connected) { sendToMaster(Heartbeat(workerId, self)) }
@@ -546,6 +556,7 @@ private[deploy] class Worker(
   }
 
   override def receiveAndReply(context: RpcCallContext): PartialFunction[Any, Unit] = {
+//        Worker 只处理需要返回的请求，那就是master查看worker状态的请求
     case RequestWorkerState =>
       context.reply(WorkerStateResponse(host, port, workerId, executors.values.toList,
         finishedExecutors.values.toList, drivers.values.toList,
@@ -712,6 +723,7 @@ private[deploy] object Worker extends Logging {
     val securityMgr = new SecurityManager(conf)
     val rpcEnv = RpcEnv.create(systemName, host, port, conf, securityMgr)
     val masterAddresses = masterUrls.map(RpcAddress.fromSparkURL(_))
+//    这里跟启动master 类似，主要看一下处理rpc请求的函数，以及向master发送的rpc请求
     rpcEnv.setupEndpoint(ENDPOINT_NAME, new Worker(rpcEnv, webUiPort, cores, memory,
       masterAddresses, ENDPOINT_NAME, workDir, conf, securityMgr))
     rpcEnv

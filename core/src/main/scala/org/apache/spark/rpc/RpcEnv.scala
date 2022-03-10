@@ -30,6 +30,8 @@ import org.apache.spark.util.RpcUtils
 /**
  * A RpcEnv implementation must have a [[RpcEnvFactory]] implementation with an empty constructor
  * so that it can be created via Reflection.
+ * RpcEnvFactory 和 RpcEnv是抽象类，NettyRpcEnvFactory和NettyRpcEnv是它们的实现，NettyRpcEnvFactory
+ * 用反射创建NettyRpcEnv类.
  */
 private[spark] object RpcEnv {
 

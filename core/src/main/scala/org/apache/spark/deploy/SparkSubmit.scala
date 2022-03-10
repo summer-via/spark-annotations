@@ -683,6 +683,7 @@ object SparkSubmit {
     var mainClass: Class[_] = null
 
     try {
+      // 加载主类
       mainClass = Utils.classForName(childMainClass)
     } catch {
       case e: ClassNotFoundException =>
@@ -709,7 +710,7 @@ object SparkSubmit {
     if (classOf[scala.App].isAssignableFrom(mainClass)) {
       printWarning("Subclasses of scala.App may not work correctly. Use a main() method instead.")
     }
-
+//  获取main方法
     val mainMethod = mainClass.getMethod("main", new Array[String](0).getClass)
     if (!Modifier.isStatic(mainMethod.getModifiers)) {
       throw new IllegalStateException("The main method in the given main class must be static")

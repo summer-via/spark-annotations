@@ -77,7 +77,7 @@ function start_instance {
     PORT_NUM=$(( $SPARK_WORKER_PORT + $WORKER_NUM - 1 ))
   fi
   WEBUI_PORT=$(( $SPARK_WORKER_WEBUI_PORT + $WORKER_NUM - 1 ))
-
+  # 跟start master的代码差不多， 直接看类实现
   "${SPARK_HOME}/sbin"/spark-daemon.sh start $CLASS $WORKER_NUM \
      --webui-port "$WEBUI_PORT" $PORT_FLAG $PORT_NUM $MASTER "$@"
 }

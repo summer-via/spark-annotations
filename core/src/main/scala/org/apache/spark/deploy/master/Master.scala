@@ -376,9 +376,11 @@ private[deploy] class Master(
 
   }
 
+//  Master 响应各种Rpc请求
   override def receiveAndReply(context: RpcCallContext): PartialFunction[Any, Unit] = {
     case RegisterWorker(
         id, workerHost, workerPort, workerRef, cores, memory, workerWebUiUrl) =>
+//      响应worker的注册请求
       logInfo("Registering worker %s:%d with %d cores, %s RAM".format(
         workerHost, workerPort, cores, Utils.megabytesToString(memory)))
       if (state == RecoveryState.STANDBY) {
@@ -390,6 +392,7 @@ private[deploy] class Master(
           workerRef, workerWebUiUrl)
         if (registerWorker(worker)) {
           persistenceEngine.addWorker(worker)
+//          返回 RegisteredWorker 消息给worker，并把worker添加到persistenceEngine中保存
           context.reply(RegisteredWorker(self, masterWebUiUrl))
           schedule()
         } else {
@@ -998,6 +1001,7 @@ private[deploy] class Master(
   }
 }
 
+// 启动master的入口点
 private[deploy] object Master extends Logging {
   val SYSTEM_NAME = "sparkMaster"
   val ENDPOINT_NAME = "Master"
@@ -1007,6 +1011,7 @@ private[deploy] object Master extends Logging {
     val conf = new SparkConf
     val args = new MasterArguments(argStrings, conf)
     val (rpcEnv, _, _) = startRpcEnvAndEndpoint(args.host, args.port, args.webUiPort, conf)
+    // Wait until [[RpcEnv]] exits. 至此Master的rpc服务已经成建立了，等待与worker互动了，下一步看worker的代码。。。
     rpcEnv.awaitTermination()
   }
 
@@ -1023,8 +1028,11 @@ private[deploy] object Master extends Logging {
       conf: SparkConf): (RpcEnv, Int, Option[Int]) = {
     val securityMgr = new SecurityManager(conf)
     val rpcEnv = RpcEnv.create(SYSTEM_NAME, host, port, conf, securityMgr)
+//  设置rpc终端点后， 会返回一个RpcEndpointRef类，类似于管道的endpoint吧，可以用来发送请求
     val masterEndpoint = rpcEnv.setupEndpoint(ENDPOINT_NAME,
-      new Master(rpcEnv, rpcEnv.address, webUiPort, securityMgr, conf))
+      new Master(rpcEnv, rpcEnv.address, webUiPort, securityMgr, conf)
+    )
+//   发送绑定端口的请求, 处理请求在 receiveAndReply 函数里, 没有做什么处理，只是返回了几个绑定的端口
     val portsResponse = masterEndpoint.askWithRetry[BoundPortsResponse](BoundPortsRequest)
     (rpcEnv, portsResponse.webUIPort, portsResponse.restPort)
   }

@@ -71,6 +71,8 @@ import org.apache.spark.util._
  * Only one SparkContext may be active per JVM.  You must `stop()` the active SparkContext before
  * creating a new one.  This limitation may eventually be removed; see SPARK-2243 for more details.
  *
+ * 一个SparkContext对应一个通spark集群的连接，每个jvm只允许有一个SparkContext
+ *
  * @param config a Spark Config object describing the application configuration. Any settings in
  *   this config overrides the default configs as well as system properties.
  */
