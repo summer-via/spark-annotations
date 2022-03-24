@@ -302,6 +302,7 @@ class DAGScheduler(
    */
   private def getParentStagesAndId(rdd: RDD[_], firstJobId: Int): (List[Stage], Int) = {
     val parentStages = getParentStages(rdd, firstJobId)
+    // nextStageId是一个原子性整型，自增分配StageId
     val id = nextStageId.getAndIncrement()
     (parentStages, id)
   }
@@ -337,7 +338,9 @@ class DAGScheduler(
       jobId: Int,
       callSite: CallSite): ResultStage = {
     val (parentStages: List[Stage], id: Int) = getParentStagesAndId(rdd, jobId)
+    // 划分stage之后，把最终rdd封装成ResultStage，也就是说一个action操作最后都是一个ResultStage
     val stage = new ResultStage(id, rdd, func, partitions, parentStages, jobId, callSite)
+    // 添加到stageid到stage的映射
     stageIdToStage(id) = stage
     updateJobIdStageIdMaps(jobId, stage)
     stage
@@ -376,6 +379,8 @@ class DAGScheduler(
   /**
    * Get or create the list of parent stages for a given RDD.  The new Stages will be created with
    * the provided firstJobId.
+   * 划分stage的关键代码，也不复杂，rdd的dependencies已经区分了ShuffleDependency和普通依赖，
+   * 遇到shuffle依赖，构造一个ShuffleMapStage加到父stage中.
    */
   private def getParentStages(rdd: RDD[_], firstJobId: Int): List[Stage] = {
     val parents = new HashSet[Stage]
@@ -435,6 +440,7 @@ class DAGScheduler(
     parents
   }
 
+  // dfs去找缺失的stage，缺失的stage只会是ShuffleMapStage
   private def getMissingParentStages(stage: Stage): List[Stage] = {
     val missing = new HashSet[Stage]
     val visited = new HashSet[RDD[_]]
@@ -871,6 +877,7 @@ class DAGScheduler(
     val stageInfos = stageIds.flatMap(id => stageIdToStage.get(id).map(_.latestInfo))
     listenerBus.post(
       SparkListenerJobStart(job.jobId, jobSubmissionTime, stageInfos, properties))
+    // 最终会提交finalStage.
     submitStage(finalStage)
 
     submitWaitingStages()
@@ -926,6 +933,7 @@ class DAGScheduler(
     val jobId = activeJobForStage(stage)
     if (jobId.isDefined) {
       logDebug("submitStage(" + stage + ")")
+      // 递归提交依赖的missingStage，知道没有缺失依赖时，把stage转化成任务进行提交（submitMissingTasks）
       if (!waitingStages(stage) && !runningStages(stage) && !failedStages(stage)) {
         val missing = getMissingParentStages(stage).sortBy(_.id)
         logDebug("missing: " + missing)
@@ -969,6 +977,7 @@ class DAGScheduler(
         outputCommitCoordinator.stageStart(
           stage = s.id, maxPartitionId = s.rdd.partitions.length - 1)
     }
+    // 根据本地性配置去计算每个rdd的存放位置，checkpoint过的rdd特殊判断
     val taskIdToLocations: Map[Int, Seq[TaskLocation]] = try {
       stage match {
         case s: ShuffleMapStage =>

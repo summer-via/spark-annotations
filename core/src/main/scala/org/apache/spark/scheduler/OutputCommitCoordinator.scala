@@ -106,9 +106,11 @@ private[spark] class OutputCommitCoordinator(conf: SparkConf, isDriver: Boolean)
   private[scheduler] def stageStart(
       stage: StageId,
       maxPartitionId: Int): Unit = {
+    // 也就是说每个partiton都要记录一个尝试次数， 初始值填充-1
     val arr = new Array[TaskAttemptNumber](maxPartitionId + 1)
     java.util.Arrays.fill(arr, NO_AUTHORIZED_COMMITTER)
     synchronized {
+      // 更新stage到尝试次数的索引
       authorizedCommittersByStage(stage) = arr
     }
   }
