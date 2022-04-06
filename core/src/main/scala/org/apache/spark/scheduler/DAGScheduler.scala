@@ -338,7 +338,7 @@ class DAGScheduler(
       jobId: Int,
       callSite: CallSite): ResultStage = {
     val (parentStages: List[Stage], id: Int) = getParentStagesAndId(rdd, jobId)
-    // 划分stage之后，把最终rdd封装成ResultStage，也就是说一个action操作最后都是一个ResultStage
+    // getParentStagesAndId会递归划分stage之后，并返回父stage，组装成ResultStage
     val stage = new ResultStage(id, rdd, func, partitions, parentStages, jobId, callSite)
     // 添加到stageid到stage的映射
     stageIdToStage(id) = stage
