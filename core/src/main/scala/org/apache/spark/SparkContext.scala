@@ -1864,12 +1864,15 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
     if (stopped.get()) {
       throw new IllegalStateException("SparkContext has been shutdown")
     }
+//    callSite 就是提交的类？
     val callSite = getCallSite
+//    没看懂，后面再看
     val cleanedFunc = clean(func)
     logInfo("Starting job: " + callSite.shortForm)
     if (conf.getBoolean("spark.logLineage", false)) {
       logInfo("RDD's recursive dependencies:\n" + rdd.toDebugString)
     }
+//    主要看这里，这里是dagScheduler执行一个job的起点
     dagScheduler.runJob(rdd, cleanedFunc, partitions, callSite, resultHandler, localProperties.get)
     progressBar.foreach(_.finishAll())
     rdd.doCheckpoint()

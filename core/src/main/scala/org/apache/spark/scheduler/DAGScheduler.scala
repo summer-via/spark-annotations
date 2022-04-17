@@ -579,6 +579,7 @@ class DAGScheduler(
 
     val jobId = nextJobId.getAndIncrement()
     if (partitions.size == 0) {
+      // 没有分区的时候直接返回一个没有任务的JobWaiter
       // Return immediately if the job is running 0 tasks
       return new JobWaiter[U](this, jobId, 0, resultHandler)
     }
@@ -586,6 +587,7 @@ class DAGScheduler(
     assert(partitions.size > 0)
     val func2 = func.asInstanceOf[(TaskContext, Iterator[_]) => _]
     val waiter = new JobWaiter(this, jobId, partitions.size, resultHandler)
+    // 向event loop发送任务， 真正执行时最在handlexxx
     eventProcessLoop.post(JobSubmitted(
       jobId, rdd, func2, partitions.toArray, callSite, waiter,
       SerializationUtils.clone(properties)))
@@ -618,7 +620,8 @@ class DAGScheduler(
     // Note: Do not call Await.ready(future) because that calls `scala.concurrent.blocking`,
     // which causes concurrent SQL executions to fail if a fork-join pool is used. Note that
     // due to idiosyncrasies in Scala, `awaitPermission` is not actually used anywhere so it's
-    // safe to pass in null here. For more detail, see SPARK-13747.
+    // safe to pass in null h
+    // ere. For more detail, see SPARK-13747.
     val awaitPermission = null.asInstanceOf[scala.concurrent.CanAwait]
     waiter.completionFuture.ready(Duration.Inf)(awaitPermission)
     waiter.completionFuture.value.get match {
