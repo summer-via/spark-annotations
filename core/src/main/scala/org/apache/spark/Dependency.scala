@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+// 这个文件定义了各种rdd的依赖类型，依赖的类型是由算子的类型决定的，这也是划分stage的关键，划分stage是会用模式匹配去匹配依赖的类型
 package org.apache.spark
 
 import scala.reflect.ClassTag
@@ -97,6 +97,7 @@ class ShuffleDependency[K: ClassTag, V: ClassTag, C: ClassTag](
 /**
  * :: DeveloperApi ::
  * Represents a one-to-one dependency between partitions of the parent and child RDDs.
+ * 一对一依赖显然是宅依赖的一种
  */
 @DeveloperApi
 class OneToOneDependency[T](rdd: RDD[T]) extends NarrowDependency[T](rdd) {

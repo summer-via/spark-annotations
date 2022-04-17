@@ -72,6 +72,9 @@ import org.apache.spark.util.random.{BernoulliCellSampler, BernoulliSampler, Poi
  * reading data from a new storage system) by overriding these functions. Please refer to the
  * [[http://www.cs.berkeley.edu/~matei/papers/2012/nsdi_spark.pdf Spark paper]] for more details
  * on RDD internals.
+ * RDD 是一个抽象类，实现了部分通用方法，例如通过sc和依赖rdd创建rdd
+ * RDD的大部分操作都是action操作，像filter，map等这种one to one操作的可能是transform操作，像reduce，aggregate
+ * 以及衍生出来的max/min等都是action，
  */
 abstract class RDD[T: ClassTag](
     @transient private var _sc: SparkContext,
@@ -100,6 +103,7 @@ abstract class RDD[T: ClassTag](
   }
 
   /** Construct an RDD with just a one-to-one dependency on one parent */
+  /* 指定一个父rdd来创建rdd， 对应的依赖类型为一对一依赖，是一种宅依赖 */
   def this(@transient oneParent: RDD[_]) =
     this(oneParent.context, List(new OneToOneDependency(oneParent)))
 
@@ -265,6 +269,7 @@ abstract class RDD[T: ClassTag](
    * Get the preferred locations of a partition, taking into account whether the
    * RDD is checkpointed.
    */
+  // 如果checkpoint过则跳用checkpointRDD的getPreferredLocations方法，否则直接调用getPreferredLocations
   final def preferredLocations(split: Partition): Seq[String] = {
     checkpointRDD.map(_.getPreferredLocations(split)).getOrElse {
       getPreferredLocations(split)
