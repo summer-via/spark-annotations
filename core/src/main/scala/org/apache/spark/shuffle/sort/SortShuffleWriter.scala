@@ -49,6 +49,7 @@ private[spark] class SortShuffleWriter[K, V, C](
 
   /** Write a bunch of records to this task's output */
   override def write(records: Iterator[Product2[K, V]]): Unit = {
+    // 获取Map端聚合和排序的方式
     sorter = if (dep.mapSideCombine) {
       require(dep.aggregator.isDefined, "Map-side combine without Aggregator specified!")
       new ExternalSorter[K, V, C](
@@ -60,16 +61,26 @@ private[spark] class SortShuffleWriter[K, V, C](
       new ExternalSorter[K, V, V](
         context, aggregator = None, Some(dep.partitioner), ordering = None, dep.serializer)
     }
+    // 将一批数据写入到内存缓冲区中，如果占用的内存超过阈值则溢写到磁盘
     sorter.insertAll(records)
 
     // Don't bother including the time to open the merged output file in the shuffle write time,
     // because it just opens a single file, so is typically too fast to measure accurately
     // (see SPARK-3570).
+    // 一个shuffle文件通过shuffleId，mapId， reduceId唯一确定，这里reduceId用的是NOOP_REDUCE_ID
+    // NOOP_REDUCE_ID 应该表示没有reduce操作的默认值
     val output = shuffleBlockResolver.getDataFile(dep.shuffleId, mapId)
+    // 创建一个临时文件，用来存这次
     val tmp = Utils.tempFileWith(output)
+    // 计算一下blockId，对应的就是文件就是output
     val blockId = ShuffleBlockId(dep.shuffleId, mapId, IndexShuffleBlockResolver.NOOP_REDUCE_ID)
+    // 把sorter里内存和溢出到文件里的数据全部写到一个文件里， 这里blockId用来给索引文件命名
     val partitionLengths = sorter.writePartitionedFile(blockId, tmp)
+    // 把tmp合并到最终的shuffle map task输出文件，并且更新索引文件
     shuffleBlockResolver.writeIndexFileAndCommit(dep.shuffleId, mapId, partitionLengths, tmp)
+    // mapStatus用来存元信息, 这里只用返回shuffleServerId和长度感觉是因为文件名称都是固定的，
+    // 只用告诉shuffle read去哪个shuffleServerId里找文件就行了，blockManager是个单例，
+    // 应该是管理当前executor的中数据block的
     mapStatus = MapStatus(blockManager.shuffleServerId, partitionLengths)
   }
 

@@ -75,8 +75,10 @@ private[spark] class ShuffleMapTask(
     var writer: ShuffleWriter[Any, Any] = null
     try {
       val manager = SparkEnv.get.shuffleManager
+      // 根据配置获取shuffle writer
       writer = manager.getWriter[Any, Any](dep.shuffleHandle, partitionId, context)
       writer.write(rdd.iterator(partition, context).asInstanceOf[Iterator[_ <: Product2[Any, Any]]])
+      // write的结果存在mapStatus中， 返回mapStatus
       writer.stop(success = true).get
     } catch {
       case e: Exception =>
