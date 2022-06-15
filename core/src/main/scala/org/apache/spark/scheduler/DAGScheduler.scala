@@ -959,9 +959,11 @@ class DAGScheduler(
   private def submitMissingTasks(stage: Stage, jobId: Int) {
     logDebug("submitMissingTasks(" + stage + ")")
     // Get our pending tasks and remember them in our pendingTasks entry
+    // 获取等待的任务并且把它们记录在pendingTasks中
     stage.pendingPartitions.clear()
 
     // First figure out the indexes of partition ids to compute.
+    // 首先计算出要计算的分区的下标，不是所有分区都需要计算，因为有的可能已经缓存过了
     val partitionsToCompute: Seq[Int] = stage.findMissingPartitions()
 
     // Use the scheduling pool, job group, description, etc. from an ActiveJob associated
@@ -974,6 +976,7 @@ class DAGScheduler(
     // will be posted, which should always come after a corresponding SparkListenerStageSubmitted
     // event.
     stage match {
+      // 这里貌似只是初始化了一下尝试次数
       case s: ShuffleMapStage =>
         outputCommitCoordinator.stageStart(stage = s.id, maxPartitionId = s.numPartitions - 1)
       case s: ResultStage =>
@@ -1036,7 +1039,7 @@ class DAGScheduler(
         runningStages -= stage
         return
     }
-
+    // 计算出所有task
     val tasks: Seq[Task[_]] = try {
       stage match {
         case stage: ShuffleMapStage =>
@@ -1565,23 +1568,29 @@ class DAGScheduler(
     // If the partition has already been visited, no need to re-visit.
     // This avoids exponential path exploration.  SPARK-695
     if (!visited.add((rdd, partition))) {
+      // 遇到访问过得分区，直接返回
       // Nil has already been returned for previously visited partitions.
       return Nil
     }
     // If the partition is cached, return the cache locations
+    // 如果分区缓存过，直接返回缓存的位置
     val cached = getCacheLocs(rdd)(partition)
     if (cached.nonEmpty) {
       return cached
     }
     // If the RDD has some placement preferences (as is the case for input RDDs), get those
+    // 若果有特殊的存放偏好的话，使用这些偏好
     val rddPrefs = rdd.preferredLocations(rdd.partitions(partition)).toList
     if (rddPrefs.nonEmpty) {
+      // 利用偏好位置创建TaskLocation
       return rddPrefs.map(TaskLocation(_))
     }
 
     // If the RDD has narrow dependencies, pick the first partition of the first narrow dependency
     // that has any placement preferences. Ideally we would choose based on transfer sizes,
     // but this will do for now.
+    // 递归获取父依赖各个分区的位置偏好，这里只用考虑窄依赖，我猜是因为提交task的前提就是上一个stage已经执行完了，
+    // 处于边界的rdd的宽依赖应该已经执行完了
     rdd.dependencies.foreach {
       case n: NarrowDependency[_] =>
         for (inPart <- n.getParents(partition)) {

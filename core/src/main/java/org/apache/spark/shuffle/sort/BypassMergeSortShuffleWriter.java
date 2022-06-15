@@ -50,8 +50,11 @@ import org.apache.spark.util.Utils;
 
 /**
  * This class implements sort-based shuffle's hash-style shuffle fallback path. This write path
+ * sort-based shuffle's hash-style shuffle，基于排序shuffle并且具有一部分hashshuffle的特性
  * writes incoming records to separate files, one file per reduce partition, then concatenates these
+ * 把记录写到独立的文件，每个文件对应一个reduce分区
  * per-partition files to form a single output file, regions of which are served to reducers.
+ * 然后把这些
  * Records are not buffered in memory. This is essentially identical to
  * {@link org.apache.spark.shuffle.hash.HashShuffleWriter}, except that it writes output in a format
  * that can be served / consumed via {@link org.apache.spark.shuffle.IndexShuffleBlockResolver}.
