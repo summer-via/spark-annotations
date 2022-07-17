@@ -34,10 +34,12 @@ import org.apache.spark.ui.jobs.UIData._
 /**
  * :: DeveloperApi ::
  * Tracks task-level information to be displayed in the UI.
+ * 记录展示在ui上的task级别的信息
  *
  * All access to the data structures in this class must be synchronized on the
  * class, since the UI thread and the EventBus loop may otherwise be reading and
  * updating the internal data structures concurrently.
+ * 所有对这个类的访问需要加synchronized锁，因为ui线程和事件循环可能并发读和更新内部数据结构
  */
 @DeveloperApi
 class JobProgressListener(conf: SparkConf) extends SparkListener with Logging {

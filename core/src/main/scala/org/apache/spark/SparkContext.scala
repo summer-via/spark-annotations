@@ -418,6 +418,7 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
 
     // "_jobProgressListener" should be set up before creating SparkEnv because when creating
     // "SparkEnv", some messages will be posted to "listenerBus" and we should not miss them.
+    // _jobProgressListener 应该在创建SparkEnv之前设置，因为创建过程也会有消息发送到监听总线上，我们不应该错误它们
     _jobProgressListener = new JobProgressListener(_conf)
     listenerBus.addListener(jobProgressListener)
 
@@ -2209,6 +2210,7 @@ object SparkContext extends Logging {
 
   /**
    * Called to ensure that no other SparkContext is running in this JVM.
+   * 用来保证没有其他spark上下文运行在同一jvm
    *
    * Throws an exception if a running context is detected and logs a warning if another thread is
    * constructing a SparkContext.  This warning is necessary because the current locking scheme
@@ -2218,6 +2220,7 @@ object SparkContext extends Logging {
   private def assertNoOtherContextIsRunning(
       sc: SparkContext,
       allowMultipleContexts: Boolean): Unit = {
+    // 这里用到一个锁去保证一次只有线程去检查是不是起个多个sparkContext
     SPARK_CONTEXT_CONSTRUCTOR_LOCK.synchronized {
       Option(activeContext.get()).filter(_ ne sc).foreach { ctx =>
           val errMsg = "Only one SparkContext may be running in this JVM (see SPARK-2243)." +
