@@ -423,6 +423,7 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
     listenerBus.addListener(jobProgressListener)
 
     // Create the Spark execution environment (cache, map output tracker, etc)
+    // **很关键**， 这一步创建了相关的env，包括创建rpc的相关env信息
     _env = createSparkEnv(_conf, isLocal, listenerBus)
     SparkEnv.set(_env)
 
@@ -488,10 +489,13 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
 
     // We need to register "HeartbeatReceiver" before "createTaskScheduler" because Executor will
     // retrieve "HeartbeatReceiver" in the constructor. (SPARK-6640)
+    // HeartbeatReceiver要先创建，因为Executor在创建过程中要获取心跳
+    // 注册心跳rpc端点，返回rpcRef
     _heartbeatReceiver = env.rpcEnv.setupEndpoint(
       HeartbeatReceiver.ENDPOINT_NAME, new HeartbeatReceiver(this))
 
     // Create and start the scheduler
+    // **关键一步** 创建各种调度，job、dag、task的
     val (sched, ts) = SparkContext.createTaskScheduler(this, master, deployMode)
     _schedulerBackend = sched
     _taskScheduler = ts
@@ -544,7 +548,10 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
       }
     _cleaner.foreach(_.start())
 
+    // 设置事件总线, 这一步会注册用户自定义的listener
     setupAndStartListenerBus()
+
+    // 连个convince方法，往总线发送一些信息
     postEnvironmentUpdate()
     postApplicationStart()
 
