@@ -50,6 +50,8 @@ private[spark] class SortShuffleWriter[K, V, C](
   /** Write a bunch of records to this task's output */
   override def write(records: Iterator[Product2[K, V]]): Unit = {
     // 根据定义的map端预聚合方式，创建外部排序器
+    // 注意这里传递了dep.partitioner, reduce端的分区器， sorter会按输出的partition作为key，保证partition内有序
+    // 这里的排序方式
     sorter = if (dep.mapSideCombine) {
       require(dep.aggregator.isDefined, "Map-side combine without Aggregator specified!")
       new ExternalSorter[K, V, C](
@@ -75,6 +77,7 @@ private[spark] class SortShuffleWriter[K, V, C](
     // 计算一下blockId，对应的就是文件就是output
     val blockId = ShuffleBlockId(dep.shuffleId, mapId, IndexShuffleBlockResolver.NOOP_REDUCE_ID)
     // 把sorter里内存和溢出到文件里的数据全部写到一个文件里， 这里blockId用来给索引文件命名
+    // 这里才会进行排序， 用的就是归并排序
     val partitionLengths = sorter.writePartitionedFile(blockId, tmp)
     // 把tmp合并到最终的shuffle map task输出文件，并且更新索引文件
     shuffleBlockResolver.writeIndexFileAndCommit(dep.shuffleId, mapId, partitionLengths, tmp)

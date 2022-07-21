@@ -700,6 +700,7 @@ private[spark] class ExternalSorter[K, V, C](
 
     if (spills.isEmpty) {
       // Case where we only have in-memory data
+      // 有预聚合存到map里，没有存到buffer里
       val collection = if (aggregator.isDefined) map else buffer
       val it = collection.destructiveSortedWritablePartitionedIterator(comparator)
       while (it.hasNext) {

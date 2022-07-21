@@ -47,6 +47,7 @@ private[spark] class PartitionedPairBuffer[K, V](initialCapacity: Int = 64)
     if (curSize == capacity) {
       growArray()
     }
+    // key和value存到相邻位置
     data(2 * curSize) = (partition, key.asInstanceOf[AnyRef])
     data(2 * curSize + 1) = value.asInstanceOf[AnyRef]
     curSize += 1
